@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sort"
 	"time"
 )
 
@@ -19,15 +20,42 @@ var urls = []string{
 	// "https://github.com/does-not-exist",
 }
 
-func main() {
-	for _, url := range urls {
-		go get(url)
-	}
-	// TODO: remove this sleep once we finish objective #2
-	time.Sleep(3 * time.Second)
+type result struct {
+	url     string
+	elapsed time.Duration
+	status  string
+	size    int
 }
 
-func get(url string) {
+func main() {
+	ch := make(chan result)
+
+	// fire one goroutine per url
+	for _, url := range urls {
+		go get(ch, url)
+	}
+
+	// get one result back for each of the urls
+	var results []result
+	for range urls {
+		// receive a result from whichever of the spawned goroutines
+		// that's finished; blocks until any one finishes.
+		res := <-ch
+		results = append(results, res)
+	}
+
+	// now, sort the results list from fastest to slowest
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].elapsed < results[j].elapsed
+	})
+
+	// finally, print the results
+	for _, res := range results {
+		fmt.Println(res.url, res.elapsed, res.status, res.size)
+	}
+}
+
+func get(ch chan result, url string) {
 	start := time.Now()
 
 	resp, err := http.Get(url)
@@ -41,5 +69,6 @@ func get(url string) {
 	}
 
 	elapsed := time.Since(start)
-	fmt.Println(url, elapsed, resp.Status, len(body))
+	// send the result back to the main goroutine via the channel
+	ch <- result{url, elapsed, resp.Status, len(body)}
 }
