@@ -41,6 +41,14 @@ returned body.
 We'll make multiple changes to this file. Edit the `main.go` file. You can make
 commits locally if you want, to keep track of your progress.
 
+### To keep in mind: Gotchas
+
+* No semicolons: they aren't necessary
+* Types are reversed: `func(urls []string)`, not `func(string[] urls)`
+* Unlike C++/Java, funcs can return many values: `func() (url string, ok bool)`
+* Builds and imports are based on packages, similar to Java
+* Unused imports are variables are build errors
+
 ### Objective #1: fetch all URLs concurrently
 
 Doing this work sequentially is wasteful. We can fetch all the URLs at once. Use
@@ -71,12 +79,3 @@ one, which should return a 404 not found.
 The current program panics immediately on any error. Instead, send the error as
 part of the result via the channel to the main goroutine, and print all the
 error results at the very end of the output.
-
-### Addendum: Gotchas
-
-* No semicolons: they aren't necessary
-* Types are reversed: `func(urls []string)`, not `func(string[] urls)`
-* Unlike C++/Java, funcs can return many values: `func() (url string, ok
-  bool)`
-* Builds and imports are based on packages, similar to Java
-* Unused imports are variables are build errors
