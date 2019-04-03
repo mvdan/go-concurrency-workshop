@@ -15,9 +15,7 @@ var urls = []string{
 	"https://www.fib.upc.edu/",
 	"https://golang.org/",
 	"https://google.com/",
-
-	// uncomment to do objective #3
-	// "https://github.com/does-not-exist",
+	"https://github.com/does-not-exist",
 }
 
 type result struct {
@@ -25,6 +23,7 @@ type result struct {
 	elapsed time.Duration
 	status  string
 	size    int
+	err     error
 }
 
 func main() {
@@ -46,12 +45,22 @@ func main() {
 
 	// now, sort the results list from fastest to slowest
 	sort.Slice(results, func(i, j int) bool {
-		return results[i].elapsed < results[j].elapsed
+		res1, res2 := results[i], results[j]
+		// if both errors are nil or non-nil, sort by elapsed
+		if (res1.err == nil) == (res2.err == nil) {
+			return results[i].elapsed < results[j].elapsed
+		}
+		// otherwise, we want the result without an error first
+		return res1.err == nil
 	})
 
 	// finally, print the results
 	for _, res := range results {
-		fmt.Println(res.url, res.elapsed, res.status, res.size)
+		if res.err != nil {
+			fmt.Println(res.url, res.elapsed, res.status, res.err)
+		} else {
+			fmt.Println(res.url, res.elapsed, res.status, res.size)
+		}
 	}
 }
 
@@ -60,15 +69,37 @@ func get(ch chan result, url string) {
 
 	resp, err := http.Get(url)
 	if err != nil {
-		panic(err)
+		ch <- result{err: err}
+		return
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		// this case isn't covered by the error above
+		ch <- result{
+			url:     url,
+			elapsed: time.Since(start),
+			err:     fmt.Errorf("http status code %d", resp.StatusCode),
+			status:  resp.Status,
+		}
+		return
+	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		panic(err)
+		ch <- result{
+			url:     url,
+			elapsed: time.Since(start),
+			err:     err,
+			status:  resp.Status,
+		}
+		return
 	}
 
-	elapsed := time.Since(start)
 	// send the result back to the main goroutine via the channel
-	ch <- result{url, elapsed, resp.Status, len(body)}
+	ch <- result{
+		url:     url,
+		elapsed: time.Since(start),
+		status:  resp.Status,
+		size:    len(body),
+	}
 }
